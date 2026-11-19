@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Keyglow
+Comment=Colour, effect, and brightness for the RGB keyboard backlight
+Exec=keyglow open
+Icon=keyglow
+Terminal=false
+Categories=Utility;Settings;HardwareSettings;
+Keywords=keyboard;backlight;rgb;led;light;
+StartupWMClass=keyglow

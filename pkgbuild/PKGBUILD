@@ -1,0 +1,33 @@
+pkgname=keyglow
+pkgver=0.1.0
+pkgrel=1
+pkgdesc='Colour, effect, and brightness for ITE 8291 RGB keyboard backlights'
+arch=('x86_64')
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'systemd')
+optdepends=('tuxedo-drivers-nocompatcheck-dkms: the ite_8291 driver that exposes the keyboard zones')
+makedepends=('gcc' 'make')
+install=keyglow.install
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/keyglow "$pkgdir/usr/bin/keyglow"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/keyglow.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/keyglow.svg"
+  install -Dm644 "$startdir/keyglow.desktop" "$pkgdir/usr/share/applications/keyglow.desktop"
+  install -Dm644 "$startdir/70-keyglow.rules" "$pkgdir/usr/lib/udev/rules.d/70-keyglow.rules"
+  install -Dm644 "$startdir/keyglow.service" "$pkgdir/usr/lib/systemd/user/keyglow.service"
+
+  # Enabled for every user's graphical session, like `systemctl --global
+  # enable`. Without the keyboard it only reads one missing file a quarter
+  # second, and picks the keyboard up if the driver loads later.
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../keyglow.service "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/keyglow.service"
+}

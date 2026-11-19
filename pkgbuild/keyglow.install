@@ -1,0 +1,10 @@
+post_install() {
+  udevadm control --reload-rules
+  udevadm trigger --subsystem-match=hidraw --action=change
+  echo "keyglow: start the background service now with: systemctl --user start keyglow"
+}
+
+post_upgrade() {
+  udevadm control --reload-rules
+  udevadm trigger --subsystem-match=hidraw --action=change
+}
