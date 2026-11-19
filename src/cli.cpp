@@ -134,7 +134,7 @@ int profile(const QStringList &arguments, Keyboard *keyboard, const QString &sta
             return fail(profiles.isEmpty() ? QString("no profiles saved yet") : "no profile called " + target);
         state = Profiles::applied(state, profiles[index]);
         if (state.followTheme)
-            state.color = QColor(accent());
+            state.color = Lighting::vivid(QColor(accent()));
         const int result = commit(state, keyboard, statePath);
         if (result == 0 && action == "next")
             QTextStream(stdout) << profiles[index].name << Qt::endl;
@@ -208,7 +208,7 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
                 if (!value(&text) || !QColor::isValidColorName(text))
                     return fail("--color takes a colour like #ff8800");
                 const QColor color(text);
-                state.color = QColor(color.red(), color.green(), color.blue());
+                state.color = Lighting::vivid(color);
                 state.followTheme = false;
                 state.on = true;
             } else if (option == "--follow-theme") {
@@ -216,7 +216,7 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
                     return fail("--follow-theme takes on or off");
                 state.followTheme = text == "on";
                 if (state.followTheme)
-                    state.color = QColor(accent());
+                    state.color = Lighting::vivid(QColor(accent()));
             } else if (option == "--battery-saver") {
                 if (!value(&text) || !Lighting::batterySaverFromName(text, &state.batterySaver))
                     return fail("--battery-saver takes none, dim, or off");

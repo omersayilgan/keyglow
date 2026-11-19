@@ -61,7 +61,7 @@ void Backend::setColor(const QColor &color) {
     if (!color.isValid())
         return;
     Lighting::State next = m_state;
-    next.color = QColor(color.red(), color.green(), color.blue());
+    next.color = Lighting::vivid(QColor(color.red(), color.green(), color.blue()));
     next.on = true;
     // A colour picked by hand replaces the theme's.
     next.followTheme = false;
@@ -91,7 +91,7 @@ void Backend::setFollowTheme(bool follow) {
     Lighting::State next = m_state;
     next.followTheme = follow;
     if (follow && m_theme) {
-        next.color = QColor(m_theme->accent());
+        next.color = Lighting::vivid(QColor(m_theme->accent()));
         next.on = true;
         if (!Lighting::usesColor(next.mode))
             next.mode = Lighting::Mode::Static;
@@ -277,7 +277,7 @@ void Backend::followAccent() {
     if (!m_state.followTheme || !m_theme)
         return;
     Lighting::State next = m_state;
-    next.color = QColor(m_theme->accent());
+    next.color = Lighting::vivid(QColor(m_theme->accent()));
     replace(next);
 }
 

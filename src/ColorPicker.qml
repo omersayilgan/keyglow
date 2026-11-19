@@ -3,9 +3,10 @@ import QtQuick.Controls
 import QtQuick.Controls.Material
 import QtQuick.Layouts
 
-// Presets for the usual picks, hue and saturation for anything else, and a
-// hex field for an exact colour. Value stays at full, because the brightness
-// slider already dims the keyboard.
+// Presets for the usual picks, a hue slider for anything else, and a hex
+// field for an exact colour. Saturation and value stay at full (the backend
+// makes every colour vivid), because washed-out colours tint unevenly across
+// the zones and the brightness slider already dims the keyboard.
 ColumnLayout {
     id: picker
 
@@ -86,7 +87,7 @@ ColumnLayout {
             from: 0
             to: 1
             value: picker.hue
-            onMoved: backend.setColor(Qt.hsva(value, Math.max(0.05, backend.color.hsvSaturation), 1, 1))
+            onMoved: backend.setColor(Qt.hsva(value, 1, 1, 1))
 
             background: Rectangle {
                 x: hueSlider.leftPadding
@@ -103,30 +104,6 @@ ColumnLayout {
                     GradientStop { position: 0.67; color: "#0000ff" }
                     GradientStop { position: 0.83; color: "#ff00ff" }
                     GradientStop { position: 1.0; color: "#ff0000" }
-                }
-            }
-        }
-
-        Label { text: qsTr("Saturation"); opacity: 0.7 }
-        Slider {
-            id: saturationSlider
-            Layout.fillWidth: true
-            focusPolicy: Qt.NoFocus
-            from: 0
-            to: 1
-            value: backend.color.hsvSaturation
-            onMoved: backend.setColor(Qt.hsva(picker.hue, value, 1, 1))
-
-            background: Rectangle {
-                x: saturationSlider.leftPadding
-                y: saturationSlider.topPadding + saturationSlider.availableHeight / 2 - height / 2
-                width: saturationSlider.availableWidth
-                height: 6
-                radius: 3
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0; color: "#ffffff" }
-                    GradientStop { position: 1.0; color: Qt.hsva(picker.hue, 1, 1, 1) }
                 }
             }
         }

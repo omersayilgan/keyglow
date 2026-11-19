@@ -19,8 +19,9 @@ ApplicationWindow {
 
     property bool helpVisible: false
 
-    readonly property var presets: ["#ffffff", "#ff2d2d", "#ff8a00", "#ffd60a", "#2bd94a",
-                                    "#00d5ff", "#2f6bff", "#9b4dff", "#ff3fb4"]
+    // At full saturation, as every colour the keyboard shows is.
+    readonly property var presets: ["#ffffff", "#ff0000", "#ff8800", "#ffd000", "#00ff2b",
+                                    "#00d9ff", "#004cff", "#6f00ff", "#ff009d"]
 
     function modeLabel(name) {
         switch (name) {

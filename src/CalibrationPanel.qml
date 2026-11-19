@@ -5,8 +5,9 @@ import QtQuick.Layouts
 
 // Matches the four LED zones by eye. The zones' LEDs aren't equally strong,
 // so a mixed colour like orange drifts toward red in some zones and yellow
-// in others; nudging each zone's red, green, and blue evens them out, and
-// the correction then applies to every colour and effect.
+// in others. Matching each zone on pure red, green, and blue in turn evens
+// out every LED on its own, and the correction then carries over to every
+// mixed colour and effect.
 Popup {
     id: panel
     parent: Overlay.overlay
@@ -33,12 +34,18 @@ Popup {
     readonly property var zoneNames: [qsTr("Zone 1"), qsTr("Zone 2"), qsTr("Zone 3"), qsTr("Zone 4")]
     readonly property var channelNames: [qsTr("Red"), qsTr("Green"), qsTr("Blue")]
     readonly property var channelColors: ["#ff5a5a", "#3ddc63", "#5a8cff"]
-    readonly property var testColors: ["#ff8a00", "#ffd60a", "#ff3fb4", "#00d5ff", "#ffffff"]
+    // Pure primaries: each lights one LED per zone, so only that channel's
+    // sliders matter and the zones can be matched on brightness alone.
+    readonly property var testColors: ["#ff0000", "#00ff00", "#0000ff"]
+    // The channel the shown test colour lights, or -1 for any other colour.
+    readonly property int testChannel: testColors.indexOf(backend.color.toString().toLowerCase())
 
     // Mismatched zones show best on a plain mixed colour.
     onAboutToShow: {
         if (backend.mode !== "static")
             backend.setMode("static")
+        if (testChannel < 0)
+            backend.setColor(testColors[0])
     }
 
     ScrollView {
@@ -60,7 +67,7 @@ Popup {
                 Layout.fillWidth: true
                 wrapMode: Text.Wrap
                 opacity: 0.7
-                text: qsTr("Pick a test colour, then nudge each zone until the whole keyboard looks the same. A zone that looks too yellow needs less green; one that looks too red needs more green. Moving a slider shows which zone it is.")
+                text: qsTr("Go through red, green, and blue in turn. For each, slide that colour in every zone until all four zones are equally bright; the other sliders don't change it. Moving a slider shows which zone it is.")
             }
 
             RowLayout {
@@ -109,6 +116,8 @@ Popup {
                             required property int index
                             Layout.fillWidth: true
                             spacing: 10
+                            // The sliders the test colour doesn't light step back.
+                            opacity: panel.testChannel < 0 || panel.testChannel === index ? 1 : 0.35
 
                             Label {
                                 Layout.preferredWidth: 52

@@ -175,6 +175,14 @@ private slots:
         QCOMPARE(Lighting::calibrated(QColor(255, 255, 255), {200, 100, 100}).red(), 255);
     }
 
+    void colorsAreVivid()
+    {
+        QCOMPARE(Lighting::vivid(QColor("#7daea3")), QColor("#00ffc4"));
+        QCOMPARE(Lighting::vivid(QColor("#ff0000")), QColor("#ff0000"));
+        // Greys have no hue, so they become white.
+        QCOMPARE(Lighting::vivid(QColor("#6e6e6e")), QColor("#ffffff"));
+    }
+
     void trimRoundTripsAndKeepsStaticOffTheDriver()
     {
         State state;
@@ -215,7 +223,8 @@ private slots:
         const QString path = m_dir->filePath("state.json");
         write(path, "{\"mode\":\"ripple\",\"color\":\"#ff3fb4\"}");
         QCOMPARE(Lighting::load(path).mode, Mode::Static);
-        QCOMPARE(Lighting::load(path).color, QColor("#ff3fb4"));
+        // A washed-out colour saved by an older version comes back vivid.
+        QCOMPARE(Lighting::load(path).color, QColor("#ff009d"));
     }
 
     void effectsWithoutColourUseASpreadOfHues()
@@ -256,7 +265,7 @@ private slots:
     {
         State state;
         state.mode = Mode::Breathing;
-        state.color = QColor("#9b4dff");
+        state.color = QColor("#6f00ff");
         state.brightness = 30;
         state.speed = 7;
         state.on = false;
@@ -376,7 +385,7 @@ private slots:
 
         const State saved = Lighting::load(path);
         QCOMPARE(saved.mode, Mode::Breathing);
-        QCOMPARE(saved.color, QColor("#2f6bff"));
+        QCOMPARE(saved.color, QColor("#004cff"));   // made vivid
         QCOMPARE(keyboard.sent.size(), 1);
         QVERIFY(backend.problem().isEmpty());
     }
@@ -579,11 +588,11 @@ private slots:
         Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"), &theme);
         backend.setMode("rainbow");
         backend.setFollowTheme(true);
-        QCOMPARE(backend.color(), QColor("#112233"));
+        QCOMPARE(backend.color(), QColor("#0080ff"));   // the accent, made vivid
         QCOMPARE(backend.mode(), QString("static"));
 
-        write(themeDir.filePath("theme/colors.toml"), "accent = \"#445566\"\n");
-        QTRY_COMPARE(backend.color(), QColor("#445566"));
+        write(themeDir.filePath("theme/colors.toml"), "accent = \"#aa7744\"\n");
+        QTRY_COMPARE(backend.color(), QColor("#ff8000"));
 
         // A colour picked by hand stops following.
         backend.setColor(QColor("#ff0000"));

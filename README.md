@@ -14,14 +14,19 @@ in plain colour. The same service:
 - **Follows the Omarchy theme.** With *Match the Omarchy theme* on, the
   keyboard takes the theme's accent colour, and takes the new one whenever
   the theme changes.
+
+Every colour, picked or from the theme, is shown at full saturation: a
+washed-out colour lights all three LEDs in each zone, and their mismatch
+shows as an uneven tint. Grey theme accents become white.
 - **Saves battery.** While unplugged, the light can stay as is, dim to a
   set level, or turn off. Plugging in brings back the saved level. A level
   picked by hand while unplugged holds until the power changes.
 
 **Calibrate zones** evens out the four LED zones, whose LEDs aren't equally
 strong: a mixed colour like orange can drift toward red in one zone and
-yellow in another. A red, green, and blue correction per zone, set once by
-eye, then applies to every colour and effect.
+yellow in another. It shows pure red, green, and blue in turn, and each
+zone's matching slider is set by eye until the zones are equally bright; the
+correction then applies to every colour and effect.
 
 **Profiles** save a look (effect, colour, brightness, speed, theme matching)
 under a name, to switch back to it from the window or a keybinding.

@@ -63,6 +63,11 @@ bool isAnimated(Mode mode);
 // colours the app sends straight to the controller are scaled the same way
 // and an effect matches the static colour it was picked from.
 QColor whiteBalanced(const QColor &color);
+// Every colour the keyboard shows is at full saturation and value: washed-out
+// colours light all three LEDs, so the zones' mismatch shows as a tint, and
+// a dim one only wastes range the brightness setting already covers. Greys,
+// which have no hue, become white.
+QColor vivid(const QColor &color);
 // The colour to send to one zone: white-balanced, then trimmed for that zone.
 QColor calibrated(const QColor &color, const Trim &trim);
 bool isNeutral(const std::array<Trim, Zones> &trim);

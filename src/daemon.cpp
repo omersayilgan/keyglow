@@ -90,7 +90,7 @@ void Daemon::themeChanged() {
     if (!m_theme)
         return;
     Lighting::State state = Lighting::load(m_statePath);
-    const QColor accent(m_theme->accent());
+    const QColor accent = Lighting::vivid(QColor(m_theme->accent()));
     if (!state.followTheme || !accent.isValid() || state.color.rgb() == accent.rgb())
         return;
     state.color = accent;

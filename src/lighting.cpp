@@ -108,6 +108,17 @@ QColor whiteBalanced(const QColor &color) {
     return QColor(color.red(), color.green() * 126 / 255, color.blue() * 120 / 255);
 }
 
+QColor vivid(const QColor &color) {
+    if (!color.isValid())
+        return color;
+    const int hue = color.hsvHue();
+    if (hue < 0)
+        return QColor(255, 255, 255);
+    // Rebuilt from 8-bit channels, so it compares equal to the same hex.
+    const QColor full = QColor::fromHsv(hue, 255, 255);
+    return QColor(full.red(), full.green(), full.blue());
+}
+
 QColor calibrated(const QColor &color, const Trim &trim) {
     const QColor balanced = whiteBalanced(color);
     auto scale = [](int value, int percent) { return qBound(0, value * percent / 100, 255); };
@@ -178,7 +189,7 @@ State fromJson(const QJsonObject &object) {
         state.mode = mode;
     const QColor color(object.value("color").toString());
     if (color.isValid())
-        state.color = color;
+        state.color = vivid(color);
     if (object.value("brightness").isDouble())
         state.brightness = percentToLevel(object.value("brightness").toInt());
     if (object.value("speed").isDouble())
