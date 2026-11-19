@@ -26,7 +26,20 @@ QByteArray readFile(const QString &path) {
 
 } // namespace
 
-Keyboard::Keyboard(const QString &ledRoot) : m_root(ledRoot) {}
+Keyboard::Keyboard(const QString &ledRoot, const QString &powerRoot) : m_root(ledRoot), m_powerRoot(powerRoot) {}
+
+bool Keyboard::onBattery() const {
+    bool sawMains = false;
+    const QStringList supplies = QDir(m_powerRoot).entryList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::System);
+    for (const QString &supply : supplies) {
+        if (readFile(m_powerRoot + "/" + supply + "/type") != "Mains")
+            continue;
+        sawMains = true;
+        if (readFile(m_powerRoot + "/" + supply + "/online") == "1")
+            return false;
+    }
+    return sawMains;
+}
 
 // The driver names the zones rgb:kbd_backlight, then _1, _2, _3 as each one
 // collides with the first, so the plain name is always zone one.

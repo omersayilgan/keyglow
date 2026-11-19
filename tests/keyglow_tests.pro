@@ -5,6 +5,6 @@ TEMPLATE = app
 
 INCLUDEPATH += ../src
 
-HEADERS += ../src/backend.h ../src/daemon.h ../src/keyboard.h ../src/lighting.h ../src/theme.h ../src/translator.h
-SOURCES += keyglow_tests.cpp ../src/backend.cpp ../src/daemon.cpp ../src/keyboard.cpp ../src/lighting.cpp \
+HEADERS += ../src/backend.h ../src/daemon.h ../src/keyboard.h ../src/lighting.h ../src/profiles.h ../src/theme.h ../src/translator.h
+SOURCES += keyglow_tests.cpp ../src/backend.cpp ../src/daemon.cpp ../src/keyboard.cpp ../src/lighting.cpp ../src/profiles.cpp \
            ../src/theme.cpp ../src/translator.cpp

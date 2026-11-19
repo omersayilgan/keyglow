@@ -12,7 +12,8 @@
 // hidraw node for the effects the driver has no interface for.
 class Keyboard {
 public:
-    explicit Keyboard(const QString &ledRoot = QStringLiteral("/sys/class/leds"));
+    explicit Keyboard(const QString &ledRoot = QStringLiteral("/sys/class/leds"),
+                      const QString &powerRoot = QStringLiteral("/sys/class/power_supply"));
     virtual ~Keyboard() = default;
 
     QStringList zones() const;
@@ -21,6 +22,9 @@ public:
 
     // -1 when the zone can't be read.
     int brightness() const;
+    // True when there is a mains supply and it is unplugged. Machines
+    // without one (desktops) are never on battery.
+    bool onBattery() const;
     QColor color() const;
 
     bool setBrightness(int level, QString *error = nullptr);
@@ -36,4 +40,5 @@ protected:
 
 private:
     QString m_root;
+    QString m_powerRoot;
 };

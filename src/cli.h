@@ -8,6 +8,6 @@ class Keyboard;
 // Each exits 0 on success and 1 with the reason on stderr.
 namespace Cli {
 
-int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePath);
+int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePath, const QString &profilesPath);
 
 } // namespace Cli

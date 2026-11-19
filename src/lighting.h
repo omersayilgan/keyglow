@@ -13,6 +13,9 @@ namespace Lighting {
 
 enum class Mode { Static, Breathing, Wave, Rainbow, Random, Ripple };
 
+// What happens to the light while the laptop runs on battery.
+enum class BatterySaver { None, Dim, Off };
+
 // The controller's own brightness scale; the driver exposes the same range.
 constexpr int MaxBrightness = 50;
 constexpr int MinSpeed = 1;
@@ -25,12 +28,18 @@ struct State {
     int brightness = 25;   // 0..MaxBrightness
     int speed = 5;         // MinSpeed (slow) .. MaxSpeed (fast)
     bool on = true;
+    // Take the Omarchy theme's accent as the colour, and keep taking it.
+    bool followTheme = false;
+    BatterySaver batterySaver = BatterySaver::None;
+    int batteryBrightness = 10;   // the most a Dim saver allows, 0..MaxBrightness
 
     bool operator==(const State &other) const;
     bool operator!=(const State &other) const { return !(*this == other); }
 };
 
 QString modeName(Mode mode);
+QString batterySaverName(BatterySaver saver);
+bool batterySaverFromName(const QString &name, BatterySaver *saver);
 bool modeFromName(const QString &name, Mode *mode);
 QStringList modeNames();
 
@@ -43,6 +52,10 @@ bool isAnimated(Mode mode);
 // colours the app sends straight to the controller are scaled the same way
 // and an effect matches the static colour it was picked from.
 QColor whiteBalanced(const QColor &color);
+
+// The state the keyboard should show right now: the saved one, with the
+// battery saver applied while unplugged.
+State effective(const State &state, bool onBattery);
 
 // Feature reports that start an effect: four palette slots, then the effect.
 QList<QByteArray> effectPackets(const State &state);

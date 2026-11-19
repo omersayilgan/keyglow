@@ -27,9 +27,26 @@ ColumnLayout {
 
     SectionLabel { text: qsTr("Colour") }
 
+    RowLayout {
+        Layout.fillWidth: true
+        spacing: 12
+        Label {
+            Layout.fillWidth: true
+            text: qsTr("Match the Omarchy theme")
+            wrapMode: Text.Wrap
+        }
+        Switch {
+            checked: backend.followTheme
+            focusPolicy: Qt.NoFocus
+            onToggled: backend.setFollowTheme(checked)
+        }
+    }
+
     Flow {
         Layout.fillWidth: true
         spacing: 10
+        // Still usable while following: picking a colour stops following.
+        opacity: backend.followTheme ? 0.45 : 1
 
         Repeater {
             model: picker.presets
@@ -56,6 +73,7 @@ ColumnLayout {
 
     GridLayout {
         Layout.fillWidth: true
+        opacity: backend.followTheme ? 0.45 : 1
         columns: 2
         columnSpacing: 12
         rowSpacing: 0

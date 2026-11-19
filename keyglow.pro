@@ -10,6 +10,7 @@ HEADERS += \
     src/daemon.h \
     src/keyboard.h \
     src/lighting.h \
+    src/profiles.h \
     src/theme.h \
     src/translator.h
 
@@ -20,6 +21,7 @@ SOURCES += \
     src/daemon.cpp \
     src/keyboard.cpp \
     src/lighting.cpp \
+    src/profiles.cpp \
     src/theme.cpp \
     src/translator.cpp
 

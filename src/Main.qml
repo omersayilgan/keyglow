@@ -65,6 +65,9 @@ ApplicationWindow {
     Shortcut { sequence: "["; context: Qt.ApplicationShortcut; onActivated: backend.setSpeed(backend.speed - 1) }
     Shortcut { sequence: "]"; context: Qt.ApplicationShortcut; onActivated: backend.setSpeed(backend.speed + 1) }
     Shortcut { sequence: "C"; context: Qt.ApplicationShortcut; onActivated: win.nextPreset() }
+    Shortcut { sequence: "T"; context: Qt.ApplicationShortcut; onActivated: backend.setFollowTheme(!backend.followTheme) }
+    Shortcut { sequence: "P"; context: Qt.ApplicationShortcut; onActivated: backend.nextProfile() }
+    Shortcut { sequences: [StandardKey.Save]; context: Qt.ApplicationShortcut; onActivated: profileBar.openSave() }
     Shortcut { sequences: [StandardKey.Undo]; context: Qt.ApplicationShortcut; onActivated: backend.undo() }
     Shortcut { sequences: [StandardKey.Redo, "Ctrl+Shift+Z"]; context: Qt.ApplicationShortcut; onActivated: backend.redo() }
     Repeater {
@@ -126,6 +129,11 @@ ApplicationWindow {
                 brightness: backend.brightness
                 speed: backend.speed
                 on: backend.on
+            }
+
+            ProfileBar {
+                id: profileBar
+                Layout.fillWidth: true
             }
 
             SectionLabel { text: qsTr("Effect") }
@@ -234,6 +242,10 @@ ApplicationWindow {
                     }
                     Label { text: qsTr("Fast"); opacity: 0.6 }
                 }
+            }
+
+            BatterySection {
+                Layout.fillWidth: true
             }
 
             Notice {

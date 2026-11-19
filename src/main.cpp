@@ -12,6 +12,7 @@
 #include "cli.h"
 #include "keyboard.h"
 #include "lighting.h"
+#include "profiles.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -25,12 +26,12 @@ int main(int argc, char *argv[]) {
         QCoreApplication app(argc, argv);
         app.setApplicationName("keyglow");
         Keyboard keyboard;
-        return Cli::run(app.arguments().mid(1), &keyboard, Lighting::defaultStatePath());
+        return Cli::run(app.arguments().mid(1), &keyboard, Lighting::defaultStatePath(), Profiles::defaultPath());
     }
 
     QGuiApplication app(argc, argv);
     app.setApplicationName("keyglow");
-    app.setApplicationVersion("0.1.0");
+    app.setApplicationVersion("0.2.0");
 
     // Matches the window to keyglow.desktop, so the compositor (Wayland app_id)
     // and the launcher pick up the installed icon.
@@ -46,7 +47,7 @@ int main(int argc, char *argv[]) {
 
     Theme theme;
     Keyboard keyboard;
-    Backend backend(&keyboard, Lighting::defaultStatePath());
+    Backend backend(&keyboard, Lighting::defaultStatePath(), Profiles::defaultPath(), &theme);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &backend, &Backend::flush);
 
     QQmlApplicationEngine engine;

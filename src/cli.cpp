@@ -1,41 +1,59 @@
 #include "cli.h"
 
 #include <QCoreApplication>
+#include <QDir>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 #include <QTextStream>
 
 #include "daemon.h"
 #include "keyboard.h"
 #include "lighting.h"
+#include "profiles.h"
+#include "theme.h"
 
 namespace {
 
 const char *usage =
     "Usage: keyglow [command]\n"
     "\n"
-    "  open                 Open the window (the default)\n"
-    "  status [--json]      Show the saved lighting and whether the keyboard is there\n"
-    "  set [options]        Change the lighting and save it\n"
+    "  open                   Open the window (the default)\n"
+    "  status [--json]        Show the saved lighting and whether the keyboard is there\n"
+    "  set [options]          Change the lighting and save it\n"
     "      --mode <static|breathing|wave|rainbow|random|ripple>\n"
     "      --color <#rrggbb>\n"
     "      --brightness <0-100>\n"
     "      --speed <1-10>\n"
     "      --on | --off | --toggle\n"
-    "      --json           Print the resulting state as JSON\n"
-    "  apply                Send the saved lighting to the keyboard again\n"
-    "  daemon               Keep the saved lighting on the keyboard (run by keyglow.service)\n"
-    "  help                 Show this help\n";
+    "      --follow-theme <on|off>      Use the Omarchy theme's accent as the colour\n"
+    "      --battery-saver <none|dim|off>\n"
+    "      --battery-brightness <1-100> The most the dim saver allows\n"
+    "      --json             Print the resulting state as JSON\n"
+    "  profile list [--json]  List saved profiles; * marks the one showing\n"
+    "  profile save <name>    Save the current look under a name\n"
+    "  profile load <name>    Switch to a saved look\n"
+    "  profile next           Switch to the next saved look (for a keybinding)\n"
+    "  profile delete <name>  Forget a saved look\n"
+    "  apply                  Send the saved lighting to the keyboard again\n"
+    "  daemon                 Keep the saved lighting on the keyboard (run by keyglow.service)\n"
+    "  help                   Show this help\n";
 
 int fail(const QString &message) {
     QTextStream(stderr) << "keyglow: " << message << Qt::endl;
     return 1;
 }
 
+QString accent() {
+    return Theme::readAccent(QDir::homePath() + "/.local/state/omarchy/current/theme/colors.toml");
+}
+
 QJsonObject status(const Lighting::State &state, Keyboard *keyboard) {
     QJsonObject object = Lighting::toJson(state);
     object.insert("keyboard", keyboard->present());
     object.insert("zones", int(keyboard->zones().size()));
+    object.insert("onBattery", keyboard->onBattery());
     return object;
 }
 
@@ -45,19 +63,90 @@ void print(const QJsonObject &object, bool json) {
         out << QJsonDocument(object).toJson(QJsonDocument::Indented);
         return;
     }
-    out << "mode:       " << object.value("mode").toString() << "\n"
-        << "color:      " << object.value("color").toString() << "\n"
-        << "brightness: " << object.value("brightness").toInt() << "%\n"
-        << "speed:      " << object.value("speed").toInt() << "\n"
-        << "on:         " << (object.value("on").toBool() ? "yes" : "no") << "\n"
-        << "keyboard:   " << (object.value("keyboard").toBool() ? "found" : "not found") << Qt::endl;
+    out << "mode:          " << object.value("mode").toString() << "\n"
+        << "color:         " << object.value("color").toString()
+        << (object.value("followTheme").toBool() ? " (theme accent)" : "") << "\n"
+        << "brightness:    " << object.value("brightness").toInt() << "%\n"
+        << "speed:         " << object.value("speed").toInt() << "\n"
+        << "on:            " << (object.value("on").toBool() ? "yes" : "no") << "\n"
+        << "battery saver: " << object.value("batterySaver").toString();
+    if (object.value("batterySaver").toString() == "dim")
+        out << " to " << object.value("batteryBrightness").toInt() << "%";
+    out << (object.value("onBattery").toBool() ? " (on battery now)" : "") << "\n"
+        << "keyboard:      " << (object.value("keyboard").toBool() ? "found" : "not found") << Qt::endl;
+}
+
+// Saves the state, then shows it the way the battery saver says to.
+int commit(const Lighting::State &state, Keyboard *keyboard, const QString &statePath) {
+    QString error;
+    if (!Lighting::save(state, statePath, &error))
+        return fail(error);
+    if (!keyboard->apply(Lighting::effective(state, keyboard->onBattery()), &error))
+        return fail(error);
+    return 0;
+}
+
+int profile(const QStringList &arguments, Keyboard *keyboard, const QString &statePath, const QString &profilesPath) {
+    const QString action = arguments.value(1);
+    const QString name = arguments.mid(2).filter(QRegularExpression("^(?!--)")).join(' ').trimmed();
+    QList<Profiles::Profile> profiles = Profiles::load(profilesPath);
+    Lighting::State state = Lighting::load(statePath);
+
+    if (action == "list" || action.isEmpty()) {
+        const QString active = Profiles::active(profiles, state);
+        if (arguments.contains("--json")) {
+            QJsonArray array;
+            for (const auto &p : profiles) {
+                QJsonObject object = Lighting::toJson(p.look);
+                object.insert("name", p.name);
+                object.insert("active", p.name == active);
+                array.append(object);
+            }
+            QTextStream(stdout) << QJsonDocument(array).toJson(QJsonDocument::Indented);
+        } else {
+            QTextStream out(stdout);
+            for (const auto &p : profiles)
+                out << (p.name == active ? "* " : "  ") << p.name << "\n";
+        }
+        return 0;
+    }
+
+    QString error;
+    if (action == "save") {
+        if (name.isEmpty())
+            return fail("profile save takes a name");
+        Profiles::put(&profiles, name, state);
+        return Profiles::save(profiles, profilesPath, &error) ? 0 : fail(error);
+    }
+
+    if (action == "delete") {
+        if (!Profiles::remove(&profiles, name))
+            return fail("no profile called " + name);
+        return Profiles::save(profiles, profilesPath, &error) ? 0 : fail(error);
+    }
+
+    if (action == "load" || action == "next") {
+        const QString target = action == "next" ? Profiles::next(profiles, state) : name;
+        const int index = Profiles::indexOf(profiles, target);
+        if (index < 0)
+            return fail(profiles.isEmpty() ? QString("no profiles saved yet") : "no profile called " + target);
+        state = Profiles::applied(state, profiles[index]);
+        if (state.followTheme)
+            state.color = QColor(accent());
+        const int result = commit(state, keyboard, statePath);
+        if (result == 0 && action == "next")
+            QTextStream(stdout) << profiles[index].name << Qt::endl;
+        return result;
+    }
+
+    return fail("unknown profile action " + action + "\n\n" + usage);
 }
 
 } // namespace
 
 namespace Cli {
 
-int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePath) {
+int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePath, const QString &profilesPath) {
     const QString command = arguments.value(0);
 
     if (command == "help" || command == "--help" || command == "-h") {
@@ -72,11 +161,19 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
 
     if (command == "apply") {
         QString error;
-        return keyboard->apply(Lighting::load(statePath), &error) ? 0 : fail(error);
+        return keyboard->apply(Lighting::effective(Lighting::load(statePath), keyboard->onBattery()), &error)
+                   ? 0
+                   : fail(error);
     }
 
+    if (command == "profile")
+        return profile(arguments, keyboard, statePath, profilesPath);
+
     if (command == "daemon") {
-        Daemon daemon(keyboard, statePath);
+        // A theme directory passed in keeps the theme from polling hyprctl
+        // for window rounding, which the daemon has no use for.
+        Theme theme(QDir::homePath() + "/.local/state/omarchy/current");
+        Daemon daemon(keyboard, statePath, &theme);
         daemon.start();
         return QCoreApplication::exec();
     }
@@ -110,7 +207,23 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
                     return fail("--color takes a colour like #ff8800");
                 const QColor color(text);
                 state.color = QColor(color.red(), color.green(), color.blue());
+                state.followTheme = false;
                 state.on = true;
+            } else if (option == "--follow-theme") {
+                if (!value(&text) || (text != "on" && text != "off"))
+                    return fail("--follow-theme takes on or off");
+                state.followTheme = text == "on";
+                if (state.followTheme)
+                    state.color = QColor(accent());
+            } else if (option == "--battery-saver") {
+                if (!value(&text) || !Lighting::batterySaverFromName(text, &state.batterySaver))
+                    return fail("--battery-saver takes none, dim, or off");
+            } else if (option == "--battery-brightness") {
+                bool ok = false;
+                const int percent = value(&text) ? text.toInt(&ok) : -1;
+                if (!ok || percent < 1 || percent > 100)
+                    return fail("--battery-brightness takes 1 to 100");
+                state.batteryBrightness = qMax(1, Lighting::percentToLevel(percent));
             } else if (option == "--brightness") {
                 bool ok = false;
                 const int percent = value(&text) ? text.toInt(&ok) : -1;
@@ -133,14 +246,10 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
             }
         }
 
-        QString error;
-        if (!Lighting::save(state, statePath, &error))
-            return fail(error);
-        if (!keyboard->apply(state, &error))
-            return fail(error);
-        if (json)
+        const int result = commit(state, keyboard, statePath);
+        if (result == 0 && json)
             print(status(state, keyboard), true);
-        return 0;
+        return result;
     }
 
     return fail("unknown command " + command + "\n\n" + usage);

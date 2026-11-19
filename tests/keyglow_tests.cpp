@@ -10,6 +10,7 @@
 #include "daemon.h"
 #include "keyboard.h"
 #include "lighting.h"
+#include "profiles.h"
 #include "theme.h"
 #include "translator.h"
 
@@ -20,7 +21,8 @@ using Lighting::State;
 // the feature reports recorded instead of sent to a device.
 class FakeKeyboard : public Keyboard {
 public:
-    explicit FakeKeyboard(const QString &root) : Keyboard(root) {}
+    // The power supplies live beside the LEDs, so the charger is fake too.
+    explicit FakeKeyboard(const QString &root) : Keyboard(root, root + "/../power") {}
     QList<QList<QByteArray>> sent;
 
 protected:
@@ -44,6 +46,101 @@ private slots:
             write(ledFile(zone, "multi_intensity"), "255 255 255\n");
         }
         root.mkpath("leds/input4::capslock");
+        root.mkpath("power/AC0");
+        root.mkpath("power/BAT0");
+        write(m_dir->filePath("power/AC0/type"), "Mains\n");
+        write(m_dir->filePath("power/BAT0/type"), "Battery\n");
+        plug(true);
+    }
+
+    void effectiveAppliesTheBatterySaver()
+    {
+        State state;
+        state.brightness = 40;
+        state.batterySaver = Lighting::BatterySaver::Dim;
+        state.batteryBrightness = 10;
+        QCOMPARE(Lighting::effective(state, false).brightness, 40);
+        QCOMPARE(Lighting::effective(state, true).brightness, 10);
+        state.brightness = 5;
+        QCOMPARE(Lighting::effective(state, true).brightness, 5);
+        state.batterySaver = Lighting::BatterySaver::Off;
+        QVERIFY(!Lighting::effective(state, true).on);
+        QVERIFY(Lighting::effective(state, false).on);
+    }
+
+    void keyboardSeesTheCharger()
+    {
+        FakeKeyboard keyboard(leds());
+        QVERIFY(!keyboard.onBattery());
+        plug(false);
+        QVERIFY(keyboard.onBattery());
+
+        // A desktop has no mains supply at all, and is never on battery.
+        QTemporaryDir none;
+        QVERIFY(!Keyboard(leds(), none.path()).onBattery());
+    }
+
+    void newSettingsRoundTrip()
+    {
+        State state;
+        state.followTheme = true;
+        state.batterySaver = Lighting::BatterySaver::Dim;
+        state.batteryBrightness = 15;
+        const QString path = m_dir->filePath("state.json");
+        QVERIFY(Lighting::save(state, path));
+        QCOMPARE(Lighting::load(path), state);
+    }
+
+    void profilesReplaceByNameAndRoundTrip()
+    {
+        QList<Profiles::Profile> profiles;
+        State night;
+        night.color = QColor("#ff0000");
+        night.brightness = 5;
+        Profiles::put(&profiles, "Night", night);
+        State gaming;
+        gaming.mode = Mode::Wave;
+        gaming.speed = 9;
+        Profiles::put(&profiles, "Gaming", gaming);
+        night.brightness = 8;
+        Profiles::put(&profiles, "night", night);
+        QCOMPARE(Profiles::names(profiles), QStringList({"night", "Gaming"}));
+
+        const QString path = m_dir->filePath("profiles.json");
+        QVERIFY(Profiles::save(profiles, path));
+        const auto loaded = Profiles::load(path);
+        QCOMPARE(loaded.size(), 2);
+        QCOMPARE(loaded[0].look.brightness, 8);
+        QCOMPARE(loaded[1].look.mode, Mode::Wave);
+        QVERIFY(Profiles::remove(&profiles, "NIGHT"));
+        QCOMPARE(Profiles::names(profiles), QStringList({"Gaming"}));
+    }
+
+    void profilesMatchOnlyWhatTheEffectUses()
+    {
+        State rainbow;
+        rainbow.mode = Mode::Rainbow;
+        rainbow.speed = 4;
+        QList<Profiles::Profile> profiles{{"Party", rainbow}};
+
+        State current = rainbow;
+        current.color = QColor("#123456");
+        current.batterySaver = Lighting::BatterySaver::Off;
+        QCOMPARE(Profiles::active(profiles, current), QString("Party"));
+        current.speed = 5;
+        QVERIFY(Profiles::active(profiles, current).isEmpty());
+    }
+
+    void nextProfileWraps()
+    {
+        State a, b;
+        b.mode = Mode::Wave;
+        QList<Profiles::Profile> profiles{{"A", a}, {"B", b}};
+        State other;
+        other.brightness = 3;
+        QCOMPARE(Profiles::next(profiles, other), QString("A"));
+        QCOMPARE(Profiles::next(profiles, a), QString("B"));
+        QCOMPARE(Profiles::next(profiles, b), QString("A"));
     }
 
     void effectPacketsCarryPaletteAndEffect()
@@ -214,7 +311,7 @@ private slots:
     {
         FakeKeyboard keyboard(leds());
         const QString path = m_dir->filePath("state.json");
-        Backend backend(&keyboard, path);
+        Backend backend(&keyboard, path, m_dir->filePath("profiles.json"));
         backend.setMode("breathing");
         backend.setColor(QColor("#2f6bff"));
         backend.flush();
@@ -229,7 +326,7 @@ private slots:
     void pickingAColourLeavesColourlessEffects()
     {
         FakeKeyboard keyboard(leds());
-        Backend backend(&keyboard, m_dir->filePath("state.json"));
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
         backend.setMode("rainbow");
         backend.setColor(QColor("#ff8a00"));
         QCOMPARE(backend.mode(), QString("static"));
@@ -238,7 +335,7 @@ private slots:
     void brightnessZeroTurnsOffButRemembersTheLevel()
     {
         FakeKeyboard keyboard(leds());
-        Backend backend(&keyboard, m_dir->filePath("state.json"));
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
         backend.setBrightness(60);
         backend.setBrightness(0);
         QVERIFY(!backend.on());
@@ -251,7 +348,7 @@ private slots:
     void undoAndRedoStepThroughChanges()
     {
         FakeKeyboard keyboard(leds());
-        Backend backend(&keyboard, m_dir->filePath("state.json"));
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
         backend.setMode("wave");
         QTest::qWait(650);
         backend.setMode("ripple");
@@ -267,7 +364,7 @@ private slots:
     void quickChangesUndoAsOne()
     {
         FakeKeyboard keyboard(leds());
-        Backend backend(&keyboard, m_dir->filePath("state.json"));
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
         for (int percent = 10; percent <= 90; percent += 10)
             backend.setBrightness(percent);
         backend.undo();
@@ -391,7 +488,153 @@ private slots:
         QCOMPARE(Translator::pluralCategory("ja", 1), QString("other"));
     }
 
+    void backendSavesLoadsAndDeletesProfiles()
+    {
+        FakeKeyboard keyboard(leds());
+        const QString profiles = m_dir->filePath("profiles.json");
+        Backend backend(&keyboard, m_dir->filePath("state.json"), profiles);
+        backend.setMode("breathing");
+        backend.setColor(QColor("#ff0000"));
+        QVERIFY(backend.saveProfile("Night"));
+        QCOMPARE(backend.activeProfile(), QString("Night"));
+
+        backend.setMode("rainbow");
+        QVERIFY(backend.activeProfile().isEmpty());
+        backend.loadProfile("night");
+        QCOMPARE(backend.mode(), QString("breathing"));
+        QCOMPARE(backend.activeProfile(), QString("Night"));
+        QCOMPARE(Profiles::names(Profiles::load(profiles)), QStringList({"Night"}));
+
+        backend.deleteProfile("Night");
+        QVERIFY(backend.profiles().isEmpty());
+        QVERIFY(Profiles::load(profiles).isEmpty());
+    }
+
+    void backendFollowsTheThemeAccent()
+    {
+        QTemporaryDir themeDir;
+        QDir(themeDir.path()).mkpath("theme");
+        write(themeDir.filePath("theme/colors.toml"), "accent = \"#112233\"\n");
+        Theme theme(themeDir.path());
+
+        FakeKeyboard keyboard(leds());
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"), &theme);
+        backend.setMode("rainbow");
+        backend.setFollowTheme(true);
+        QCOMPARE(backend.color(), QColor("#112233"));
+        QCOMPARE(backend.mode(), QString("static"));
+
+        write(themeDir.filePath("theme/colors.toml"), "accent = \"#445566\"\n");
+        QTRY_COMPARE(backend.color(), QColor("#445566"));
+
+        // A colour picked by hand stops following.
+        backend.setColor(QColor("#ff0000"));
+        QVERIFY(!backend.followTheme());
+    }
+
+    void backendDimsOnBattery()
+    {
+        FakeKeyboard keyboard(leds());
+        Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
+        plug(false);
+        backend.setBatterySaver("dim");
+        backend.setBatteryBrightness(20);
+        backend.setBrightness(80);
+        backend.flush();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("10"));
+        QCOMPARE(backend.brightness(), 80);
+    }
+
+    void daemonDimsOnUnplugAndRestores()
+    {
+        FakeKeyboard keyboard(leds());
+        const QString path = m_dir->filePath("state.json");
+        State state;
+        state.brightness = 40;
+        state.batterySaver = Lighting::BatterySaver::Dim;
+        state.batteryBrightness = 10;
+        QVERIFY(Lighting::save(state, path));
+        Daemon daemon(&keyboard, path);
+        daemon.start();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("40"));
+
+        plug(false);
+        daemon.poll();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("10"));
+        // The saved level is untouched, so plugging in brings it back.
+        QCOMPARE(Lighting::load(path).brightness, 40);
+        plug(true);
+        daemon.poll();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("40"));
+    }
+
+    void daemonTurnsOffOnBattery()
+    {
+        FakeKeyboard keyboard(leds());
+        const QString path = m_dir->filePath("state.json");
+        State state;
+        state.mode = Mode::Wave;
+        state.batterySaver = Lighting::BatterySaver::Off;
+        QVERIFY(Lighting::save(state, path));
+        Daemon daemon(&keyboard, path);
+        daemon.start();
+        plug(false);
+        daemon.poll();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("0"));
+        QVERIFY(Lighting::load(path).on);
+    }
+
+    void handPickedLevelOnBatteryLastsUntilThePowerChanges()
+    {
+        FakeKeyboard keyboard(leds());
+        const QString path = m_dir->filePath("state.json");
+        State state;
+        state.mode = Mode::Wave;
+        state.brightness = 40;
+        state.batterySaver = Lighting::BatterySaver::Dim;
+        state.batteryBrightness = 10;
+        QVERIFY(Lighting::save(state, path));
+        plug(false);
+        Daemon daemon(&keyboard, path);
+        daemon.start();
+        keyboard.sent.clear();
+
+        // Ctrl + brightness up while dimmed: honoured, not saved, and the
+        // wave is repainted at that level.
+        write(ledFile("rgb:kbd_backlight", "brightness"), "25");
+        daemon.poll();
+        QCOMPARE(Lighting::load(path).brightness, 40);
+        QCOMPARE(keyboard.sent.last().last()[4], char(25));
+
+        plug(true);
+        daemon.poll();
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "brightness")), QByteArray("40"));
+    }
+
+    void daemonTakesTheNewAccent()
+    {
+        QTemporaryDir themeDir;
+        QDir(themeDir.path()).mkpath("theme");
+        write(themeDir.filePath("theme/colors.toml"), "accent = \"#00ff00\"\n");
+        Theme theme(themeDir.path());
+
+        FakeKeyboard keyboard(leds());
+        const QString path = m_dir->filePath("state.json");
+        State state;
+        state.followTheme = true;
+        QVERIFY(Lighting::save(state, path));
+        Daemon daemon(&keyboard, path, &theme);
+        daemon.start();
+        QCOMPARE(Lighting::load(path).color, QColor("#00ff00"));
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "multi_intensity")), QByteArray("0 255 0"));
+
+        write(themeDir.filePath("theme/colors.toml"), "accent = \"#0000ff\"\n");
+        QTRY_COMPARE(read(ledFile("rgb:kbd_backlight", "multi_intensity")), QByteArray("0 0 255"));
+    }
+
 private:
+    void plug(bool online) { write(m_dir->filePath("power/AC0/online"), online ? "1\n" : "0\n"); }
+
     QString leds() const { return m_dir->filePath("leds"); }
     QString ledFile(const QString &zone, const QString &name) const { return leds() + "/" + zone + "/" + name; }
 

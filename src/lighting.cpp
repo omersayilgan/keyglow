@@ -47,7 +47,8 @@ QByteArray packet(std::initializer_list<int> bytes) {
 
 bool State::operator==(const State &other) const {
     return mode == other.mode && color.rgb() == other.color.rgb() && brightness == other.brightness &&
-           speed == other.speed && on == other.on;
+           speed == other.speed && on == other.on && followTheme == other.followTheme &&
+           batterySaver == other.batterySaver && batteryBrightness == other.batteryBrightness;
 }
 
 QString modeName(Mode mode) { return QString::fromLatin1(info(mode).name); }
@@ -60,6 +61,35 @@ bool modeFromName(const QString &name, Mode *mode) {
         }
     }
     return false;
+}
+
+QString batterySaverName(BatterySaver saver) {
+    switch (saver) {
+    case BatterySaver::Dim: return "dim";
+    case BatterySaver::Off: return "off";
+    default: return "none";
+    }
+}
+
+bool batterySaverFromName(const QString &name, BatterySaver *saver) {
+    for (BatterySaver s : {BatterySaver::None, BatterySaver::Dim, BatterySaver::Off}) {
+        if (name.compare(batterySaverName(s), Qt::CaseInsensitive) == 0) {
+            *saver = s;
+            return true;
+        }
+    }
+    return false;
+}
+
+State effective(const State &state, bool onBattery) {
+    State shown = state;
+    if (!onBattery)
+        return shown;
+    if (state.batterySaver == BatterySaver::Off)
+        shown.on = false;
+    else if (state.batterySaver == BatterySaver::Dim)
+        shown.brightness = qMin(state.brightness, qMax(1, state.batteryBrightness));
+    return shown;
 }
 
 QStringList modeNames() {
@@ -111,6 +141,9 @@ QJsonObject toJson(const State &state) {
         {"brightness", levelToPercent(state.brightness)},
         {"speed", state.speed},
         {"on", state.on},
+        {"followTheme", state.followTheme},
+        {"batterySaver", batterySaverName(state.batterySaver)},
+        {"batteryBrightness", levelToPercent(state.batteryBrightness)},
     };
 }
 
@@ -128,6 +161,12 @@ State fromJson(const QJsonObject &object) {
         state.speed = qBound(MinSpeed, object.value("speed").toInt(), MaxSpeed);
     if (object.value("on").isBool())
         state.on = object.value("on").toBool();
+    state.followTheme = object.value("followTheme").toBool(false);
+    BatterySaver saver;
+    if (batterySaverFromName(object.value("batterySaver").toString(), &saver))
+        state.batterySaver = saver;
+    if (object.value("batteryBrightness").isDouble())
+        state.batteryBrightness = percentToLevel(object.value("batteryBrightness").toInt());
     return state;
 }
 
