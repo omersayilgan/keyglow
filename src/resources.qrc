@@ -8,6 +8,7 @@
         <file alias="HelpOverlay.qml">HelpOverlay.qml</file>
         <file alias="ProfileBar.qml">ProfileBar.qml</file>
         <file alias="BatterySection.qml">BatterySection.qml</file>
+        <file alias="CalibrationPanel.qml">CalibrationPanel.qml</file>
         <file alias="i18n/en.json">i18n/en.json</file>
     </qresource>
 </RCC>

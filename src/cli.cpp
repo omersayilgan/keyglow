@@ -22,7 +22,7 @@ const char *usage =
     "  open                   Open the window (the default)\n"
     "  status [--json]        Show the saved lighting and whether the keyboard is there\n"
     "  set [options]          Change the lighting and save it\n"
-    "      --mode <static|breathing|wave|rainbow|random|ripple>\n"
+    "      --mode <static|breathing|wave|rainbow>\n"
     "      --color <#rrggbb>\n"
     "      --brightness <0-100>\n"
     "      --speed <1-10>\n"
@@ -30,6 +30,8 @@ const char *usage =
     "      --follow-theme <on|off>      Use the Omarchy theme's accent as the colour\n"
     "      --battery-saver <none|dim|off>\n"
     "      --battery-brightness <1-100> The most the dim saver allows\n"
+    "      --zone-trim <zone>:<r>,<g>,<b>  Correct one zone (1-4), in percent\n"
+    "      --reset-trim       Remove every zone correction\n"
     "      --json             Print the resulting state as JSON\n"
     "  profile list [--json]  List saved profiles; * marks the one showing\n"
     "  profile save <name>    Save the current look under a name\n"
@@ -224,6 +226,17 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
                 if (!ok || percent < 1 || percent > 100)
                     return fail("--battery-brightness takes 1 to 100");
                 state.batteryBrightness = qMax(1, Lighting::percentToLevel(percent));
+            } else if (option == "--zone-trim") {
+                static const QRegularExpression pattern("^([1-4]):(\\d{1,3}),(\\d{1,3}),(\\d{1,3})$");
+                const auto match = value(&text) ? pattern.match(text) : QRegularExpressionMatch();
+                if (!match.hasMatch())
+                    return fail("--zone-trim takes zone:r,g,b, like 2:100,85,100");
+                const int zone = match.captured(1).toInt() - 1;
+                for (int channel = 0; channel < 3; ++channel)
+                    state.trim[zone][channel] =
+                        qBound(Lighting::MinTrim, match.captured(channel + 2).toInt(), Lighting::MaxTrim);
+            } else if (option == "--reset-trim") {
+                state.trim.fill(Lighting::NeutralTrim);
             } else if (option == "--brightness") {
                 bool ok = false;
                 const int percent = value(&text) ? text.toInt(&ok) : -1;

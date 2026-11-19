@@ -18,6 +18,11 @@ in plain colour. The same service:
   set level, or turn off. Plugging in brings back the saved level. A level
   picked by hand while unplugged holds until the power changes.
 
+**Calibrate zones** evens out the four LED zones, whose LEDs aren't equally
+strong: a mixed colour like orange can drift toward red in one zone and
+yellow in another. A red, green, and blue correction per zone, set once by
+eye, then applies to every colour and effect.
+
 **Profiles** save a look (effect, colour, brightness, speed, theme matching)
 under a name, to switch back to it from the window or a keybinding.
 
@@ -44,14 +49,12 @@ the controller (`uaccess`), so nothing runs as root.
 | Breathing | yes | Slow pulse |
 | Wave | no | Colours sweep across the zones |
 | Rainbow | no | All keys cycle through the hues |
-| Random | no | Zones change colour |
-| Ripple | yes | Lights up as you type |
 
 ## Shortcuts
 
 | Key | Action |
 |---|---|
-| `1` – `6` | Pick an effect |
+| `1` – `4` | Pick an effect |
 | `Space` | Turn the light on or off |
 | `←` `→` | Brightness down or up |
 | `[` `]` | Slower or faster |
@@ -71,6 +74,7 @@ keyglow set --mode breathing --color '#9b4dff' --brightness 60 --speed 4
 keyglow set --toggle
 keyglow set --follow-theme on
 keyglow set --battery-saver dim --battery-brightness 20
+keyglow set --zone-trim 2:100,85,100   # zone 2: 85% green
 keyglow profile save Night
 keyglow profile next     # good on a keybinding
 keyglow profile list --json

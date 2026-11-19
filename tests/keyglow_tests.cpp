@@ -160,6 +160,64 @@ private slots:
         QCOMPARE(packets[4], bytes({0x08, 0x02, 0x02, 0x01, 40, 0x08, 0x00, 0x00}));
     }
 
+    void eachZoneGetsItsOwnTrim()
+    {
+        State state;
+        state.color = QColor("#ff8a00");
+        state.trim[1] = {100, 80, 100};
+        state.trim[3] = {90, 120, 100};
+        const auto packets = Lighting::effectPackets(state);
+        // #ff8a00 white-balances to ff 44 00.
+        QCOMPARE(packets[0], bytes({0x14, 0x00, 0x01, 0xff, 0x44, 0x00, 0x00, 0x00}));
+        QCOMPARE(packets[1], bytes({0x14, 0x00, 0x02, 0xff, 0x36, 0x00, 0x00, 0x00}));
+        QCOMPARE(packets[3], bytes({0x14, 0x00, 0x04, 0xe5, 0x51, 0x00, 0x00, 0x00}));
+        // Never past full.
+        QCOMPARE(Lighting::calibrated(QColor(255, 255, 255), {200, 100, 100}).red(), 255);
+    }
+
+    void trimRoundTripsAndKeepsStaticOffTheDriver()
+    {
+        State state;
+        state.color = QColor(255, 0, 128);
+        state.trim[2] = {100, 90, 110};
+        const QString path = m_dir->filePath("state.json");
+        QVERIFY(Lighting::save(state, path));
+        QCOMPARE(Lighting::load(path).trim, state.trim);
+
+        // The driver can only hold one colour for every zone.
+        FakeKeyboard keyboard(leds());
+        QVERIFY(keyboard.apply(state));
+        QCOMPARE(keyboard.sent.size(), 1);
+        QCOMPARE(read(ledFile("rgb:kbd_backlight", "multi_intensity")), QByteArray("255 255 255"));
+    }
+
+    void profilesLeaveTheTrimAlone()
+    {
+        State state;
+        state.trim[0] = {100, 70, 100};
+        Profiles::Profile profile{"Plain", State()};
+        QCOMPARE(Profiles::applied(state, profile).trim, state.trim);
+    }
+
+    void staticIgnoresTheSpeedSlider()
+    {
+        // Any other value in the speed byte picks a multi-colour static
+        // pattern on this controller.
+        State state;
+        for (int speed : {1, 5, 9, 10}) {
+            state.speed = speed;
+            QCOMPARE(Lighting::effectPackets(state).last()[3], char(0x03));
+        }
+    }
+
+    void retiredEffectsFallBackToStatic()
+    {
+        const QString path = m_dir->filePath("state.json");
+        write(path, "{\"mode\":\"ripple\",\"color\":\"#ff3fb4\"}");
+        QCOMPARE(Lighting::load(path).mode, Mode::Static);
+        QCOMPARE(Lighting::load(path).color, QColor("#ff3fb4"));
+    }
+
     void effectsWithoutColourUseASpreadOfHues()
     {
         State state;
@@ -197,7 +255,7 @@ private slots:
     void stateRoundTripsThroughDisk()
     {
         State state;
-        state.mode = Mode::Ripple;
+        state.mode = Mode::Breathing;
         state.color = QColor("#9b4dff");
         state.brightness = 30;
         state.speed = 7;
@@ -351,7 +409,7 @@ private slots:
         Backend backend(&keyboard, m_dir->filePath("state.json"), m_dir->filePath("profiles.json"));
         backend.setMode("wave");
         QTest::qWait(650);
-        backend.setMode("ripple");
+        backend.setMode("rainbow");
         QVERIFY(backend.canUndo());
         backend.undo();
         QCOMPARE(backend.mode(), QString("wave"));

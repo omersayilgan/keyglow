@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include <QByteArray>
 #include <QColor>
 #include <QJsonObject>
@@ -11,7 +13,7 @@
 // free of any device access so it can be tested on its own.
 namespace Lighting {
 
-enum class Mode { Static, Breathing, Wave, Rainbow, Random, Ripple };
+enum class Mode { Static, Breathing, Wave, Rainbow };
 
 // What happens to the light while the laptop runs on battery.
 enum class BatterySaver { None, Dim, Off };
@@ -21,6 +23,14 @@ constexpr int MaxBrightness = 50;
 constexpr int MinSpeed = 1;
 constexpr int MaxSpeed = 10;
 constexpr int Zones = 4;
+
+// Per-zone correction, in percent of red, green, and blue. The four LED
+// zones aren't matched: a mixed colour like orange drifts toward red in a
+// zone with weak green LEDs and toward yellow in one with strong ones.
+using Trim = std::array<int, 3>;
+constexpr int MinTrim = 0;
+constexpr int MaxTrim = 200;
+constexpr Trim NeutralTrim{100, 100, 100};
 
 struct State {
     Mode mode = Mode::Static;
@@ -32,6 +42,7 @@ struct State {
     bool followTheme = false;
     BatterySaver batterySaver = BatterySaver::None;
     int batteryBrightness = 10;   // the most a Dim saver allows, 0..MaxBrightness
+    std::array<Trim, Zones> trim{NeutralTrim, NeutralTrim, NeutralTrim, NeutralTrim};
 
     bool operator==(const State &other) const;
     bool operator!=(const State &other) const { return !(*this == other); }
@@ -43,8 +54,8 @@ bool batterySaverFromName(const QString &name, BatterySaver *saver);
 bool modeFromName(const QString &name, Mode *mode);
 QStringList modeNames();
 
-// Static, breathing, and ripple show the chosen colour; the others bring
-// their own palette.
+// Static and breathing show the chosen colour; the others bring their own
+// palette.
 bool usesColor(Mode mode);
 bool isAnimated(Mode mode);
 
@@ -52,6 +63,9 @@ bool isAnimated(Mode mode);
 // colours the app sends straight to the controller are scaled the same way
 // and an effect matches the static colour it was picked from.
 QColor whiteBalanced(const QColor &color);
+// The colour to send to one zone: white-balanced, then trimmed for that zone.
+QColor calibrated(const QColor &color, const Trim &trim);
+bool isNeutral(const std::array<Trim, Zones> &trim);
 
 // The state the keyboard should show right now: the saved one, with the
 // battery saver applied while unplugged.

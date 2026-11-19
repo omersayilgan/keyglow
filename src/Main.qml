@@ -28,8 +28,6 @@ ApplicationWindow {
         case "breathing": return qsTr("Breathing")
         case "wave": return qsTr("Wave")
         case "rainbow": return qsTr("Rainbow")
-        case "random": return qsTr("Random")
-        case "ripple": return qsTr("Ripple")
         }
         return name
     }
@@ -40,8 +38,6 @@ ApplicationWindow {
         case "breathing": return qsTr("Slow pulse")
         case "wave": return qsTr("Colours sweep across")
         case "rainbow": return qsTr("All keys cycle hues")
-        case "random": return qsTr("Zones change colour")
-        case "ripple": return qsTr("Lights up as you type")
         }
         return ""
     }
@@ -140,7 +136,7 @@ ApplicationWindow {
 
             GridLayout {
                 Layout.fillWidth: true
-                columns: 3
+                columns: 2
                 rowSpacing: 8
                 columnSpacing: 8
 

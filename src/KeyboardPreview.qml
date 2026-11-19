@@ -47,15 +47,6 @@ Rectangle {
             return Qt.hsva(fract(t - zone / 4), 1, level, 1)
         case "rainbow":
             return Qt.hsva(t, 1, level, 1)
-        case "random": {
-            const step = Math.floor(t * 6)
-            return Qt.hsva(fract(Math.sin((step + 1) * (zone + 1) * 12.9898) * 43758.5453), 1, level, 1)
-        }
-        case "ripple": {
-            const front = fract(t) * 1.6 - 0.3
-            const k = level * Math.max(0.1, 1 - Math.abs(front - zone / 3) * 3)
-            return Qt.rgba(c.r * k, c.g * k, c.b * k, 1)
-        }
         default:
             return Qt.rgba(c.r * level, c.g * level, c.b * level, 1)
         }

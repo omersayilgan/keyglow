@@ -6,6 +6,7 @@
 #include <QObject>
 #include <QStringList>
 #include <QTimer>
+#include <QVariantList>
 
 #include "lighting.h"
 #include "profiles.h"
@@ -30,6 +31,8 @@ class Backend : public QObject {
     Q_PROPERTY(QString batterySaver READ batterySaver NOTIFY stateChanged)
     Q_PROPERTY(int batteryBrightness READ batteryBrightness NOTIFY stateChanged)
     Q_PROPERTY(bool onBattery READ onBattery NOTIFY onBatteryChanged)
+    Q_PROPERTY(QVariantList trim READ trim NOTIFY stateChanged)
+    Q_PROPERTY(bool trimmed READ trimmed NOTIFY stateChanged)
     Q_PROPERTY(bool saving READ saving NOTIFY savingChanged)
     Q_PROPERTY(QStringList profiles READ profiles NOTIFY profilesChanged)
     Q_PROPERTY(QString activeProfile READ activeProfile NOTIFY activeProfileChanged)
@@ -54,6 +57,8 @@ public:
     QString batterySaver() const { return Lighting::batterySaverName(m_state.batterySaver); }
     int batteryBrightness() const { return Lighting::levelToPercent(m_state.batteryBrightness); }
     bool onBattery() const { return m_onBattery; }
+    QVariantList trim() const;
+    bool trimmed() const { return !Lighting::isNeutral(m_state.trim); }
     // Whether the battery saver is holding the light down right now.
     bool saving() const { return m_onBattery && m_state.batterySaver != Lighting::BatterySaver::None && m_state.on; }
     QStringList profiles() const { return Profiles::names(m_profiles); }
@@ -71,6 +76,8 @@ public:
     Q_INVOKABLE void setFollowTheme(bool follow);
     Q_INVOKABLE void setBatterySaver(const QString &name);
     Q_INVOKABLE void setBatteryBrightness(int percent);
+    Q_INVOKABLE void setTrim(int zone, int channel, int percent);
+    Q_INVOKABLE void resetTrim();
     Q_INVOKABLE void toggle();
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();

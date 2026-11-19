@@ -1,5 +1,5 @@
 pkgname=keyglow
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
 pkgdesc='Colour, effect, and brightness for ITE 8291 RGB keyboard backlights'
 arch=('x86_64')

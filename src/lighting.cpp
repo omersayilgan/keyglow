@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QSaveFile>
 #include <QStandardPaths>
@@ -18,15 +19,14 @@ struct ModeInfo {
     quint8 effect;
 };
 
-// Effect codes confirmed on the keyboard itself; marquee, raindrop, aurora,
-// and fireworks are listed for other ITE 8291 revisions but do nothing on 0.02.
+// Effect codes confirmed on the keyboard itself. Random (0x04) and ripple
+// (0x06) answer but don't show properly on rev 0.02, and marquee, raindrop,
+// aurora, and fireworks, listed for other ITE 8291 revisions, do nothing.
 constexpr ModeInfo modes[] = {
     {Mode::Static, "static", 0x01},
     {Mode::Breathing, "breathing", 0x02},
     {Mode::Wave, "wave", 0x03},
     {Mode::Rainbow, "rainbow", 0x05},
-    {Mode::Random, "random", 0x04},
-    {Mode::Ripple, "ripple", 0x06},
 };
 
 const ModeInfo &info(Mode mode) {
@@ -48,7 +48,8 @@ QByteArray packet(std::initializer_list<int> bytes) {
 bool State::operator==(const State &other) const {
     return mode == other.mode && color.rgb() == other.color.rgb() && brightness == other.brightness &&
            speed == other.speed && on == other.on && followTheme == other.followTheme &&
-           batterySaver == other.batterySaver && batteryBrightness == other.batteryBrightness;
+           batterySaver == other.batterySaver && batteryBrightness == other.batteryBrightness &&
+           trim == other.trim;
 }
 
 QString modeName(Mode mode) { return QString::fromLatin1(info(mode).name); }
@@ -99,12 +100,25 @@ QStringList modeNames() {
     return names;
 }
 
-bool usesColor(Mode mode) { return mode == Mode::Static || mode == Mode::Breathing || mode == Mode::Ripple; }
+bool usesColor(Mode mode) { return mode == Mode::Static || mode == Mode::Breathing; }
 
 bool isAnimated(Mode mode) { return mode != Mode::Static; }
 
 QColor whiteBalanced(const QColor &color) {
     return QColor(color.red(), color.green() * 126 / 255, color.blue() * 120 / 255);
+}
+
+QColor calibrated(const QColor &color, const Trim &trim) {
+    const QColor balanced = whiteBalanced(color);
+    auto scale = [](int value, int percent) { return qBound(0, value * percent / 100, 255); };
+    return QColor(scale(balanced.red(), trim[0]), scale(balanced.green(), trim[1]), scale(balanced.blue(), trim[2]));
+}
+
+bool isNeutral(const std::array<Trim, Zones> &trim) {
+    for (const Trim &zone : trim)
+        if (zone != NeutralTrim)
+            return false;
+    return true;
 }
 
 // The controller counts speed the other way round (checked on the keyboard:
@@ -118,11 +132,12 @@ QList<QByteArray> effectPackets(const State &state) {
     QList<QByteArray> packets;
 
     // Colour effects get the one colour in every slot. The others get a
-    // spread of hues, since random and wave draw from the palette.
+    // spread of hues, which the wave draws from.
     static const QColor spread[Zones] = {QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255),
                                          QColor(255, 0, 255)};
     for (int slot = 0; slot < Zones; ++slot) {
-        const QColor color = whiteBalanced(usesColor(state.mode) ? state.color : spread[slot]);
+        // Slot n paints zone n, so each slot gets its zone's trim.
+        const QColor color = calibrated(usesColor(state.mode) ? state.color : spread[slot], state.trim[slot]);
         packets << packet({0x14, 0x00, slot + 1, color.red(), color.green(), color.blue(), 0x00, 0x00});
     }
 
@@ -130,7 +145,10 @@ QList<QByteArray> effectPackets(const State &state) {
     // it stays 0 so the keyboard always comes back to what the driver sets.
     const int level = state.on ? qBound(0, state.brightness, MaxBrightness) : 0;
     const int direction = state.mode == Mode::Wave ? 0x01 : 0x00;
-    packets << packet({0x08, 0x02, info(state.mode).effect, speedByte(state.speed), level, 0x08, direction, 0x00});
+    // Static has no speed, and other values in that byte pick multi-colour
+    // static patterns, so it gets the 0x03 the driver itself sends.
+    const int speed = state.mode == Mode::Static ? 0x03 : speedByte(state.speed);
+    packets << packet({0x08, 0x02, info(state.mode).effect, speed, level, 0x08, direction, 0x00});
     return packets;
 }
 
@@ -144,6 +162,12 @@ QJsonObject toJson(const State &state) {
         {"followTheme", state.followTheme},
         {"batterySaver", batterySaverName(state.batterySaver)},
         {"batteryBrightness", levelToPercent(state.batteryBrightness)},
+        {"zoneTrim", [&] {
+             QJsonArray zones;
+             for (const Trim &zone : state.trim)
+                 zones.append(QJsonArray{zone[0], zone[1], zone[2]});
+             return zones;
+         }()},
     };
 }
 
@@ -167,6 +191,14 @@ State fromJson(const QJsonObject &object) {
         state.batterySaver = saver;
     if (object.value("batteryBrightness").isDouble())
         state.batteryBrightness = percentToLevel(object.value("batteryBrightness").toInt());
+    const QJsonArray zones = object.value("zoneTrim").toArray();
+    for (int zone = 0; zone < Zones && zone < zones.size(); ++zone) {
+        const QJsonArray channels = zones[zone].toArray();
+        if (channels.size() != 3)
+            continue;
+        for (int channel = 0; channel < 3; ++channel)
+            state.trim[zone][channel] = qBound(MinTrim, channels[channel].toInt(100), MaxTrim);
+    }
     return state;
 }
 

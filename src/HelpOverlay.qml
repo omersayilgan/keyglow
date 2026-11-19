@@ -10,7 +10,7 @@ Rectangle {
     color: Qt.rgba(0, 0, 0, 0.7)
 
     readonly property var shortcuts: [
-        ["1 – 6", qsTr("Pick an effect")],
+        ["1 – 4", qsTr("Pick an effect")],
         [qsTr("Space"), qsTr("Turn the light on or off")],
         ["← →", qsTr("Brightness down or up")],
         ["[ ]", qsTr("Slower or faster")],

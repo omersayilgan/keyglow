@@ -165,5 +165,18 @@ ColumnLayout {
             }
         }
         Item { Layout.fillWidth: true }
+        Button {
+            text: backend.trimmed ? qsTr("Zones calibrated") : qsTr("Calibrate zones…")
+            flat: true
+            focusPolicy: Qt.NoFocus
+            font.capitalization: Font.MixedCase
+            Material.roundedScale: theme.radius
+            onClicked: calibration.open()
+        }
+    }
+
+    CalibrationPanel {
+        id: calibration
+        objectName: "calibration"
     }
 }

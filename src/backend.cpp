@@ -111,6 +111,27 @@ void Backend::setBatteryBrightness(int percent) {
     change(next);
 }
 
+QVariantList Backend::trim() const {
+    QVariantList zones;
+    for (const Lighting::Trim &zone : m_state.trim)
+        zones.append(QVariant(QVariantList{zone[0], zone[1], zone[2]}));
+    return zones;
+}
+
+void Backend::setTrim(int zone, int channel, int percent) {
+    if (zone < 0 || zone >= Lighting::Zones || channel < 0 || channel > 2)
+        return;
+    Lighting::State next = m_state;
+    next.trim[zone][channel] = qBound(Lighting::MinTrim, percent, Lighting::MaxTrim);
+    change(next);
+}
+
+void Backend::resetTrim() {
+    Lighting::State next = m_state;
+    next.trim.fill(Lighting::NeutralTrim);
+    change(next);
+}
+
 void Backend::toggle() {
     Lighting::State next = m_state;
     next.on = !next.on;

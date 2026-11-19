@@ -162,7 +162,9 @@ bool Keyboard::apply(const Lighting::State &state, QString *error) {
     // repaints for, but its colour files are root's unless the user opened
     // them up. Otherwise static colour is sent like an effect, the same
     // command the driver itself sends, and the daemon repaints it.
-    if (state.mode == Lighting::Mode::Static && setColor(state.color))
+    // The driver has one colour for all zones, so a trimmed keyboard always
+    // goes through the controller.
+    if (state.mode == Lighting::Mode::Static && Lighting::isNeutral(state.trim) && setColor(state.color))
         return true;
     return sendFeatures(Lighting::effectPackets(state), error);
 }
