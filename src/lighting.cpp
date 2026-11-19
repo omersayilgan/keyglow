@@ -119,10 +119,37 @@ QColor vivid(const QColor &color) {
     return QColor(full.red(), full.green(), full.blue());
 }
 
-QColor calibrated(const QColor &color, const Trim &trim) {
+namespace {
+
+// Each channel's level at full colour, once white-balanced.
+int balancedFull(int channel) {
+    const QColor white = whiteBalanced(QColor(255, 255, 255));
+    return channel == 0 ? white.red() : channel == 1 ? white.green() : white.blue();
+}
+
+} // namespace
+
+int fullTrim(int channel) { return 255 * 100 / balancedFull(channel); }
+
+double trimScale(const std::array<Trim, Zones> &trim) {
+    double scale = 1.0;
+    for (const Trim &zone : trim) {
+        for (int channel = 0; channel < 3; ++channel) {
+            const double wanted = balancedFull(channel) * zone[channel] / 100.0;
+            if (wanted > 255)
+                scale = qMin(scale, 255 / wanted);
+        }
+    }
+    return scale;
+}
+
+QColor calibrated(const QColor &color, const Trim &trim, double scale) {
     const QColor balanced = whiteBalanced(color);
-    auto scale = [](int value, int percent) { return qBound(0, value * percent / 100, 255); };
-    return QColor(scale(balanced.red(), trim[0]), scale(balanced.green(), trim[1]), scale(balanced.blue(), trim[2]));
+    auto level = [scale](int value, int percent) {
+        const int trimmed = value * percent / 100;
+        return qBound(0, scale < 1.0 ? int(trimmed * scale) : trimmed, 255);
+    };
+    return QColor(level(balanced.red(), trim[0]), level(balanced.green(), trim[1]), level(balanced.blue(), trim[2]));
 }
 
 bool isNeutral(const std::array<Trim, Zones> &trim) {
@@ -146,9 +173,10 @@ QList<QByteArray> effectPackets(const State &state) {
     // spread of hues, which the wave draws from.
     static const QColor spread[Zones] = {QColor(255, 0, 0), QColor(0, 255, 0), QColor(0, 0, 255),
                                          QColor(255, 0, 255)};
+    const double scale = trimScale(state.trim);
     for (int slot = 0; slot < Zones; ++slot) {
         // Slot n paints zone n, so each slot gets its zone's trim.
-        const QColor color = calibrated(usesColor(state.mode) ? state.color : spread[slot], state.trim[slot]);
+        const QColor color = calibrated(usesColor(state.mode) ? state.color : spread[slot], state.trim[slot], scale);
         packets << packet({0x14, 0x00, slot + 1, color.red(), color.green(), color.blue(), 0x00, 0x00});
     }
 

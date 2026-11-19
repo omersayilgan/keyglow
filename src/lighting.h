@@ -27,9 +27,12 @@ constexpr int Zones = 4;
 // Per-zone correction, in percent of red, green, and blue. The four LED
 // zones aren't matched: a mixed colour like orange drifts toward red in a
 // zone with weak green LEDs and toward yellow in one with strong ones.
+// A trim past what a zone's LEDs can give (fullTrim) still counts: the whole
+// keyboard is dimmed together until that zone can keep up, so the weakest
+// zone sets the level and the colours stay matched.
 using Trim = std::array<int, 3>;
 constexpr int MinTrim = 0;
-constexpr int MaxTrim = 200;
+constexpr int MaxTrim = 1000;
 constexpr Trim NeutralTrim{100, 100, 100};
 
 struct State {
@@ -68,8 +71,15 @@ QColor whiteBalanced(const QColor &color);
 // a dim one only wastes range the brightness setting already covers. Greys,
 // which have no hue, become white.
 QColor vivid(const QColor &color);
-// The colour to send to one zone: white-balanced, then trimmed for that zone.
-QColor calibrated(const QColor &color, const Trim &trim);
+// The trim at which a channel reaches its LEDs' full output: 100 for red,
+// which the white balance leaves alone, about 200 for green and blue.
+int fullTrim(int channel);
+// What the whole keyboard is scaled by so that every zone's trim fits in
+// what its LEDs can give: 1, or less once a trim goes past fullTrim.
+double trimScale(const std::array<Trim, Zones> &trim);
+// The colour to send to one zone: white-balanced, trimmed for that zone,
+// then scaled with the rest of the keyboard.
+QColor calibrated(const QColor &color, const Trim &trim, double scale = 1.0);
 bool isNeutral(const std::array<Trim, Zones> &trim);
 
 // The state the keyboard should show right now: the saved one, with the

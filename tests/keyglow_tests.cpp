@@ -175,6 +175,29 @@ private slots:
         QCOMPARE(Lighting::calibrated(QColor(255, 255, 255), {200, 100, 100}).red(), 255);
     }
 
+    void aWeakZoneDimsTheWholeKeyboard()
+    {
+        QCOMPARE(Lighting::fullTrim(0), 100);
+        QCOMPARE(Lighting::fullTrim(1), 202);
+        QCOMPARE(Lighting::fullTrim(2), 212);
+
+        State state;
+        state.color = QColor(255, 255, 255);
+        QCOMPARE(Lighting::trimScale(state.trim), 1.0);
+        // Up to full, nothing else changes.
+        state.trim[2] = {100, 200, 100};
+        QCOMPARE(Lighting::trimScale(state.trim), 1.0);
+
+        // Zone 3 asks for four times the green the others get: it runs at
+        // full and every zone, every channel, comes down to a quarter.
+        state.trim[2] = {100, 400, 100};
+        QVERIFY(qAbs(Lighting::trimScale(state.trim) - 255.0 / 504) < 1e-9);
+        const auto packets = Lighting::effectPackets(state);
+        // Zone 1 was ff 7e 78; zone 3's green asks for 504, so it gets 255.
+        QCOMPARE(packets[0], bytes({0x14, 0x00, 0x01, 129, 63, 60, 0x00, 0x00}));
+        QCOMPARE(packets[2], bytes({0x14, 0x00, 0x03, 129, 255, 60, 0x00, 0x00}));
+    }
+
     void colorsAreVivid()
     {
         QCOMPARE(Lighting::vivid(QColor("#7daea3")), QColor("#00ffc4"));

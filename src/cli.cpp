@@ -30,7 +30,7 @@ const char *usage =
     "      --follow-theme <on|off>      Use the Omarchy theme's accent as the colour\n"
     "      --battery-saver <none|dim|off>\n"
     "      --battery-brightness <1-100> The most the dim saver allows\n"
-    "      --zone-trim <zone>:<r>,<g>,<b>  Correct one zone (1-4), in percent\n"
+    "      --zone-trim <zone>:<r>,<g>,<b>  Correct one zone (1-4), in percent (0-1000)\n"
     "      --reset-trim       Remove every zone correction\n"
     "      --json             Print the resulting state as JSON\n"
     "  profile list [--json]  List saved profiles; * marks the one showing\n"
@@ -227,7 +227,7 @@ int run(const QStringList &arguments, Keyboard *keyboard, const QString &statePa
                     return fail("--battery-brightness takes 1 to 100");
                 state.batteryBrightness = qMax(1, Lighting::percentToLevel(percent));
             } else if (option == "--zone-trim") {
-                static const QRegularExpression pattern("^([1-4]):(\\d{1,3}),(\\d{1,3}),(\\d{1,3})$");
+                static const QRegularExpression pattern("^([1-4]):(\\d{1,4}),(\\d{1,4}),(\\d{1,4})$");
                 const auto match = value(&text) ? pattern.match(text) : QRegularExpressionMatch();
                 if (!match.hasMatch())
                     return fail("--zone-trim takes zone:r,g,b, like 2:100,85,100");

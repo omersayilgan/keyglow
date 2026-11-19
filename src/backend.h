@@ -33,6 +33,9 @@ class Backend : public QObject {
     Q_PROPERTY(bool onBattery READ onBattery NOTIFY onBatteryChanged)
     Q_PROPERTY(QVariantList trim READ trim NOTIFY stateChanged)
     Q_PROPERTY(bool trimmed READ trimmed NOTIFY stateChanged)
+    // How much the whole keyboard is dimmed, in percent, to keep up with a
+    // zone trimmed past its LEDs' full output; 0 when none is.
+    Q_PROPERTY(int trimDimming READ trimDimming NOTIFY stateChanged)
     Q_PROPERTY(bool saving READ saving NOTIFY savingChanged)
     Q_PROPERTY(QStringList profiles READ profiles NOTIFY profilesChanged)
     Q_PROPERTY(QString activeProfile READ activeProfile NOTIFY activeProfileChanged)
@@ -59,6 +62,8 @@ public:
     bool onBattery() const { return m_onBattery; }
     QVariantList trim() const;
     bool trimmed() const { return !Lighting::isNeutral(m_state.trim); }
+    int trimDimming() const { return qRound((1.0 - Lighting::trimScale(m_state.trim)) * 100); }
+    Q_INVOKABLE int fullTrim(int channel) const { return Lighting::fullTrim(channel); }
     // Whether the battery saver is holding the light down right now.
     bool saving() const { return m_onBattery && m_state.batterySaver != Lighting::BatterySaver::None && m_state.on; }
     QStringList profiles() const { return Profiles::names(m_profiles); }

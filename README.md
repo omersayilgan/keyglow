@@ -26,7 +26,10 @@ shows as an uneven tint. Grey theme accents become white.
 strong: a mixed colour like orange can drift toward red in one zone and
 yellow in another. It shows pure red, green, and blue in turn, and each
 zone's matching slider is set by eye until the zones are equally bright; the
-correction then applies to every colour and effect.
+correction then applies to every colour and effect. A mark on each slider
+shows where that zone's LEDs reach full. A zone too weak to keep up can go
+past it, and the whole keyboard then dims together to its level, which keeps
+every colour matched at the cost of brightness.
 
 **Profiles** save a look (effect, colour, brightness, speed, theme matching)
 under a name, to switch back to it from the window or a keybinding.
